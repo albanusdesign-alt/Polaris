@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Polaris">
+<meta name="theme-color" content="#050818">
+<title>Polaris Business Wayfinder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--
+  ╭──────────────────────────────────────────────────────────╮
+  │  POLARIS BUSINESS WAYFINDER  ·  V2.0                      │
+  │  by Stellaris Solutions                                   │
+  │                                                           │
+  │  Clean rebuild. No API keys in this file — they are       │
+  │  entered in-app and saved to the device only, so GitHub   │
+  │  never flags them and Anthropic never deactivates them.   │
+  │                                                           │
+  │  Features:                                                │
+  │   • Google Places business scanning                       │
+  │   • Heuristic lead scoring (Hot / Warm / Cold / Skip)     │
+  │   • AI Deep Research — owner lookup via Claude + web      │
+  │   • CRM saves (Lead / Prospect / Client) + notes          │
+  ╰──────────────────────────────────────────────────────────╯
+-->
+<style>
+  :root {
+    --bg:#050818; --bg-2:#0B1027; --panel:rgba(11,16,39,0.85); --panel-2:rgba(17,24,56,0.9);
+    --gold:#FCD34D; --gold-2:#F59E0B; --gold-dim:#B45309;
+    --ink:#F8FAFC; --ink-2:#CBD5E1; --muted:#64748B; --muted-2:#475569;
+    --line:rgba(252,211,77,0.18); --line-soft:rgba(148,163,184,0.08);
+    --lead:#60A5FA; --prospect:#FCD34D; --client:#34D399;
+    --priority:#F87171; --qualified:#34D399; --nonqual:#60A5FA; --nulltier:#64748B;
+    --ai:#A78BFA; --ai-2:#7C3AED;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{background:var(--bg);height:100%;overscroll-behavior:none;-webkit-text-size-adjust:100%;}
+  ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#1E293B;border-radius:2px}
+  input::placeholder,textarea::placeholder{color:#334155;}
+  button{-webkit-appearance:none;touch-action:manipulation;font-family:'Inter',sans-serif;cursor:pointer;}
+  input,textarea{font-family:'Inter',sans-serif;}
+  a{text-decoration:none;}
+
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  @keyframes fadeSlide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes twinkle{0%,100%{opacity:.2}50%{opacity:1}}
+  @keyframes orbit{to{transform:rotate(360deg)}}
+  @keyframes toastIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+  .stars{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+  .star{position:absolute;width:2px;height:2px;background:#E0E7FF;border-radius:50%;animation:twinkle 3s infinite;}
+
+  #app{min-height:100dvh;background:radial-gradient(ellipse 80% 40% at 50% 0%, rgba(252,211,77,0.08) 0%, transparent 50%),radial-gradient(ellipse 90% 50% at 50% 100%, rgba(99,102,241,0.12) 0%, transparent 60%),var(--bg);font-family:'Inter',sans-serif;color:var(--ink-2);display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:relative;z-index:1;}
+
+  /* Header */
+  .header{padding:max(env(safe-area-inset-top,0px),26px) 22px 0;}
+  .brand-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .brand-mark{display:flex;align-items:center;gap:9px;margin-bottom:8px;}
+  .brand-star{font-size:18px;color:var(--gold);text-shadow:0 0 12px rgba(252,211,77,0.6);animation:twinkle 4s infinite;}
+  .brand-eyebrow{font-size:9px;font-family:'DM Mono',monospace;color:var(--gold);letter-spacing:.32em;text-transform:uppercase;}
+  .brand-name{font-family:'Cormorant Garamond',serif;font-size:31px;font-weight:600;color:var(--ink);letter-spacing:-.5px;line-height:.95;}
+  .brand-name em{font-style:italic;font-weight:500;color:var(--gold);}
+  .brand-sub{font-size:10px;font-family:'DM Mono',monospace;color:var(--muted-2);letter-spacing:.14em;text-transform:uppercase;margin-top:6px;}
+  .header-loc{font-size:11.5px;color:var(--muted);margin-top:10px;display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;}
+  .header-loc .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px rgba(252,211,77,0.8);}
+  .header-actions{display:flex;gap:6px;flex-shrink:0;}
+  .btn-icon{background:rgba(252,211,77,0.08);border:1px solid rgba(252,211,77,0.22);border-radius:10px;width:40px;height:40px;color:var(--gold);font-size:15px;display:flex;align-items:center;justify-content:center;position:relative;}
+  .btn-icon.ai-on{background:rgba(167,139,250,0.15);border-color:rgba(167,139,250,0.35);color:var(--ai);}
+  .btn-icon .badge{position:absolute;top:-4px;right:-4px;background:var(--gold);color:#0F0A02;font-size:9px;font-weight:700;border-radius:8px;padding:2px 5px;min-width:16px;text-align:center;font-family:'DM Mono',monospace;}
+
+  /* Landing */
+  .landing{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 22px 36px;gap:22px;}
+  .compass{width:120px;height:120px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;position:relative;background:radial-gradient(circle at center, rgba(252,211,77,0.18) 0%, transparent 75%);}
+  .compass-core{font-size:42px;color:var(--gold);text-shadow:0 0 24px rgba(252,211,77,0.7);z-index:2;}
+  .compass-ring{position:absolute;inset:0;border-radius:50%;border:1px dashed rgba(252,211,77,0.3);animation:orbit 30s linear infinite;}
+  .compass-ring::before{content:'';position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 12px var(--gold);}
+  .compass-ring2{position:absolute;inset:-12px;border-radius:50%;border:1px solid rgba(252,211,77,0.1);animation:pulse 3s ease-in-out infinite;}
+  .tagline{color:var(--muted);font-size:13px;line-height:1.7;max-width:290px;text-align:center;}
+  .tagline em{color:var(--gold);font-style:italic;font-family:'Cormorant Garamond',serif;font-size:15px;}
+
+  .panel{width:100%;max-width:340px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px 20px;}
+  .panel-label{font-size:10px;color:var(--muted-2);font-family:'DM Mono',monospace;letter-spacing:.18em;text-transform:uppercase;margin-bottom:12px;text-align:center;}
+  .radius-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
+  .radius-head .lbl{font-size:10px;color:var(--muted-2);letter-spacing:.16em;text-transform:uppercase;font-family:'DM Mono',monospace;}
+  .radius-head .val{font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--gold);font-weight:600;}
+  .radius-head .val em{font-style:normal;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-left:3px;}
+  input[type=range]{width:100%;accent-color:var(--gold);height:18px;}
+  .radius-ends{display:flex;justify-content:space-between;font-size:10px;color:var(--muted-2);font-family:'DM Mono',monospace;margin-top:6px;}
+
+  .btn-primary{border:none;border-radius:14px;padding:17px 32px;color:#0F0A02;font-size:15px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;min-height:56px;width:100%;max-width:340px;display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(135deg,#FCD34D,#F59E0B);box-shadow:0 8px 32px rgba(252,211,77,0.3),inset 0 1px 0 rgba(255,255,255,0.3);}
+  .btn-primary:disabled{background:rgba(252,211,77,0.2);color:rgba(252,211,77,0.4);box-shadow:none;}
+
+  .error-box{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.22);border-radius:12px;padding:13px 16px;font-size:13px;color:#FCA5A5;text-align:center;max-width:340px;width:100%;line-height:1.6;}
+  .warn-box{background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:12px;padding:13px 16px;font-size:12.5px;color:#FCD34D;text-align:center;max-width:340px;width:100%;line-height:1.6;}
+
+  .manual-row{display:flex;gap:8px;width:100%;max-width:340px;}
+  .manual-input{flex:1;background:var(--panel-2);border:1px solid rgba(252,211,77,0.3);border-radius:12px;padding:14px;color:var(--ink);font-size:15px;outline:none;min-height:50px;}
+  .manual-input:focus{border-color:var(--gold);}
+  .btn-go{background:linear-gradient(135deg,#FCD34D,#F59E0B);border:none;border-radius:12px;padding:14px 22px;color:#0F0A02;font-weight:700;font-size:14px;min-width:62px;min-height:50px;text-transform:uppercase;}
+  .btn-go:disabled{opacity:.4;}
+  .link-btn{background:none;border:none;color:var(--muted-2);font-size:12.5px;padding:8px;min-height:40px;}
+
+  /* Results */
+  .results{flex:1;display:flex;flex-direction:column;padding:14px 16px 0;min-height:0;}
+  .toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .btn-back{background:rgba(252,211,77,0.08);border:1px solid rgba(252,211,77,0.22);border-radius:10px;padding:0 12px;height:42px;color:var(--gold);display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;flex-shrink:0;}
+  .search-wrap{position:relative;flex:1;}
+  .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted-2);font-size:14px;}
+  .search-input{width:100%;background:var(--panel);border:1px solid var(--line-soft);border-radius:11px;padding:11px 12px 11px 34px;color:var(--ink);font-size:14px;outline:none;min-height:42px;}
+  .search-input:focus{border-color:rgba(252,211,77,0.3);}
+
+  .filter-bar{display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap;}
+  .chip{padding:7px 12px;border-radius:10px;font-size:12px;font-weight:600;border:1px solid var(--line-soft);background:var(--panel);color:var(--muted-2);min-height:36px;display:flex;align-items:center;gap:5px;}
+  .chip.active{border-color:var(--gold);background:rgba(252,211,77,0.15);color:var(--gold);}
+  .chip.priority.active{border-color:var(--priority);background:rgba(248,113,113,0.15);color:var(--priority);}
+
+  .cats{display:flex;gap:7px;overflow-x:auto;padding-bottom:8px;margin-bottom:4px;scrollbar-width:none;}
+  .cats::-webkit-scrollbar{display:none;}
+  .cat-btn{flex-shrink:0;padding:8px 14px;border-radius:20px;font-size:12.5px;font-weight:600;border:1px solid var(--line-soft);background:var(--panel);color:var(--muted-2);min-height:38px;white-space:nowrap;}
+  .cat-btn.active{border-color:var(--gold);background:rgba(252,211,77,0.15);color:var(--gold);}
+
+  .stats{display:flex;justify-content:space-between;align-items:center;padding:4px 2px 10px;}
+  .stats span{font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.12em;color:var(--muted-2);}
+  .stats .count{color:var(--gold);}
+
+  .list{display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex:1;padding-bottom:32px;-webkit-overflow-scrolling:touch;}
+  .spinner{text-align:center;padding:48px 0;}
+  .spinner-ring{width:34px;height:34px;border:2px solid rgba(252,211,77,0.2);border-top-color:var(--gold);border-radius:50%;margin:0 auto 14px;animation:spin .8s linear infinite;}
+  .spinner p{color:var(--muted);font-size:12.5px;font-family:'DM Mono',monospace;}
+  .empty{text-align:center;padding:48px 16px;}
+  .empty-icon{font-size:30px;margin-bottom:12px;color:var(--gold-dim);}
+  .empty h3{font-size:15px;color:var(--ink-2);font-family:'Cormorant Garamond',serif;font-weight:600;}
+  .empty p{font-size:13px;margin-top:8px;color:var(--muted);line-height:1.6;}
+
+  /* Business card */
+  .card{background:var(--panel);border:1px solid var(--line-soft);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;min-height:64px;position:relative;}
+  .card:active{background:var(--panel-2);}
+  .card.lead{border-left:3px solid var(--lead);}
+  .card.prospect{border-left:3px solid var(--prospect);}
+  .card.client{border-left:3px solid var(--client);}
+  .card-icon{width:42px;height:42px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:19px;}
+  .card-body{flex:1;min-width:0;}
+  .card-name{font-weight:600;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .card-meta{display:flex;align-items:center;gap:7px;margin-top:3px;flex-wrap:wrap;}
+  .card-type{font-size:10.5px;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em;}
+  .card-dist{font-size:11px;color:var(--gold);font-weight:600;font-family:'DM Mono',monospace;}
+  .card-rating{font-size:10.5px;color:#FBBF24;font-weight:600;}
+  .card-actions{display:flex;gap:6px;flex-shrink:0;}
+  .btn-call{background:linear-gradient(135deg,#34D399,#10B981);border:none;border-radius:11px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 14px rgba(16,185,129,0.3);color:#fff;}
+  .btn-call:active{transform:scale(.94);}
+  .btn-chevron{background:rgba(252,211,77,0.08);border:1px solid rgba(252,211,77,0.22);border-radius:11px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--gold);}
+
+  .temp{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;}
+  .temp.priority{background:rgba(248,113,113,0.18);color:var(--priority);}
+  .temp.qualified{background:rgba(52,211,153,0.18);color:var(--qualified);}
+  .temp.nonqual{background:rgba(96,165,250,0.15);color:var(--nonqual);}
+  .temp.nulltier{background:rgba(100,116,139,0.15);color:var(--nulltier);}
+  .tag{display:inline-flex;align-items:center;padding:2px 7px;border-radius:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;}
+  .tag.lead{background:rgba(96,165,250,0.15);color:var(--lead);}
+  .tag.prospect{background:rgba(252,211,77,0.15);color:var(--prospect);}
+  .tag.client{background:rgba(52,211,153,0.15);color:var(--client);}
+  .ai-pin{font-size:11px;color:var(--ai);}
+  .note-pin{font-size:10px;}
+
+  /* Bottom sheet */
+  .overlay{position:fixed;inset:0;z-index:1000;background:rgba(5,8,24,0.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease;}
+  .sheet{position:relative;width:100%;max-width:480px;background:linear-gradient(160deg,#0B1027,#161E3F);border:1px solid var(--line);border-top:1px solid rgba(252,211,77,0.3);border-radius:24px 24px 0 0;padding:22px 20px max(env(safe-area-inset-bottom,16px),36px);animation:slideUp .3s cubic-bezier(.16,1,.3,1);box-shadow:0 -24px 80px rgba(0,0,0,.6);max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .sheet-handle{width:40px;height:5px;background:#475569;border-radius:3px;margin:0 auto 6px;cursor:grab;}
+  .sheet-handle:active{cursor:grabbing;}
+  .sheet-grip{padding:6px 0 12px;margin:-8px 0 0;display:flex;flex-direction:column;align-items:center;}
+  .sheet-grip-hint{font-size:9px;color:var(--muted-2);font-family:'DM Mono',monospace;letter-spacing:.1em;margin-top:4px;}
+  .sheet-close{position:absolute;top:14px;right:16px;width:34px;height:34px;border-radius:50%;background:rgba(148,163,184,0.12);border:1px solid var(--line-soft);color:var(--ink-2);font-size:16px;display:flex;align-items:center;justify-content:center;z-index:5;}
+  .sheet-close:active{background:rgba(148,163,184,0.24);}
+  .biz-head{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+  .biz-head-icon{width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+  .biz-head-name{font-family:'Cormorant Garamond',serif;font-size:21px;font-weight:600;color:var(--ink);line-height:1.1;}
+  .biz-head-sub{font-size:11px;color:var(--muted-2);text-transform:uppercase;letter-spacing:.08em;margin-top:5px;font-family:'DM Mono',monospace;}
+  .biz-head-meta{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;align-items:center;}
+
+  .section{background:rgba(15,23,42,0.5);border:1px solid var(--line-soft);border-radius:14px;padding:14px;margin-bottom:12px;}
+  .section-label{font-size:10px;color:var(--gold);font-family:'DM Mono',monospace;letter-spacing:.16em;text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+
+  /* AI section */
+  .ai-section{background:linear-gradient(160deg,rgba(167,139,250,0.08),rgba(124,58,237,0.05));border:1px solid rgba(167,139,250,0.25);border-radius:14px;padding:14px;margin-bottom:12px;}
+  .ai-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .ai-title{font-size:10px;color:var(--ai);font-family:'DM Mono',monospace;letter-spacing:.16em;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+  .ai-badge{font-size:8.5px;background:rgba(167,139,250,0.15);color:var(--ai);border-radius:4px;padding:2px 6px;font-family:'DM Mono',monospace;letter-spacing:.05em;}
+  .verdict{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;}
+  .verdict.priority{background:rgba(248,113,113,0.18);color:var(--priority);}
+  .verdict.qualified{background:rgba(52,211,153,0.18);color:var(--qualified);}
+  .verdict.nonqual{background:rgba(96,165,250,0.15);color:var(--nonqual);}
+  .verdict.nulltier{background:rgba(100,116,139,0.15);color:var(--nulltier);}
+  .owner-card{background:rgba(252,211,77,0.08);border:1px solid rgba(252,211,77,0.2);border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:flex-start;gap:12px;}
+  .owner-card.empty{background:rgba(100,116,139,0.08);border-color:rgba(100,116,139,0.15);}
+  .owner-emoji{font-size:22px;flex-shrink:0;}
+  .owner-name{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;color:var(--ink);}
+  .owner-title{font-size:11px;color:var(--gold);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+  .owner-src{font-size:11px;color:var(--muted-2);margin-top:4px;font-style:italic;}
+  .ai-field{margin-bottom:10px;}
+  .ai-flabel{font-size:10px;color:var(--muted-2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;font-family:'DM Mono',monospace;}
+  .ai-fvalue{font-size:13px;color:var(--ink-2);line-height:1.55;}
+  .ai-fvalue.quote{color:var(--ink);font-style:italic;}
+  .ai-flags{display:flex;flex-direction:column;gap:4px;}
+  .ai-flag{font-size:11.5px;color:var(--ink-2);padding-left:14px;position:relative;line-height:1.5;}
+  .ai-flag::before{content:'›';color:var(--ai);position:absolute;left:0;font-weight:700;}
+  .btn-ai{width:100%;background:linear-gradient(135deg,#A78BFA,#7C3AED);border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.06em;min-height:48px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 16px rgba(167,139,250,0.3);}
+  .btn-ai:disabled{opacity:.6;}
+  .btn-ai.secondary{background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);color:var(--ai);box-shadow:none;}
+  .ai-meta{font-size:10px;color:var(--muted-2);font-family:'DM Mono',monospace;margin-top:8px;text-align:center;}
+  .ai-err{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#FCA5A5;line-height:1.5;}
+  .ai-intro{font-size:12.5px;color:var(--ink-2);line-height:1.6;margin-bottom:12px;}
+
+  /* CRM */
+  .save-pills{display:flex;gap:6px;}
+  .save-pill{flex:1;border:1px solid var(--line-soft);background:transparent;padding:10px 8px;border-radius:10px;font-size:12px;font-weight:600;color:var(--muted-2);display:flex;flex-direction:column;align-items:center;gap:3px;min-height:54px;}
+  .save-pill.active.lead{background:rgba(96,165,250,0.18);border-color:var(--lead);color:var(--lead);}
+  .save-pill.active.prospect{background:rgba(252,211,77,0.18);border-color:var(--prospect);color:var(--prospect);}
+  .save-pill.active.client{background:rgba(52,211,153,0.18);border-color:var(--client);color:var(--client);}
+  .notes-area{width:100%;min-height:84px;background:var(--bg-2);border:1px solid var(--line-soft);border-radius:11px;padding:11px 12px;color:var(--ink);font-size:13.5px;outline:none;resize:vertical;line-height:1.55;margin-top:12px;}
+  .notes-area:focus{border-color:rgba(252,211,77,0.35);}
+  .notes-row{display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px;}
+  .notes-saved{font-size:10.5px;color:var(--muted);font-family:'DM Mono',monospace;flex:1;}
+  .btn-save-notes{background:linear-gradient(135deg,#FCD34D,#F59E0B);border:none;border-radius:10px;padding:10px 18px;color:#0F0A02;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;min-height:38px;}
+  .btn-remove{background:none;border:none;color:#FCA5A5;font-size:11px;text-decoration:underline;padding:8px;width:100%;margin-top:10px;}
+
+  /* Actions */
+  .actions{display:flex;flex-direction:column;gap:8px;}
+  .action{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.04);border:1px solid var(--line-soft);border-radius:14px;padding:14px;min-height:58px;}
+  .action:active{background:rgba(255,255,255,0.1);}
+  .action-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+  .action-label{font-weight:600;font-size:14px;color:var(--ink);}
+  .action-sub{font-size:11px;color:var(--muted-2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px;font-family:'DM Mono',monospace;}
+  .action-arrow{color:#334155;font-size:20px;margin-left:auto;}
+  .divider{height:1px;background:var(--line-soft);margin:4px 0 12px;}
+
+  /* Saved view tabs */
+  .tabs{display:flex;gap:6px;margin-bottom:12px;background:var(--panel);border-radius:12px;padding:4px;}
+  .tab{flex:1;padding:10px 6px;border-radius:9px;border:none;background:transparent;color:var(--muted-2);font-size:12px;font-weight:600;min-height:42px;display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .tab .tc{font-size:10px;font-family:'DM Mono',monospace;opacity:.7;}
+  .tab.active.lead{background:rgba(96,165,250,0.15);color:var(--lead);}
+  .tab.active.prospect{background:rgba(252,211,77,0.15);color:var(--prospect);}
+  .tab.active.client{background:rgba(52,211,153,0.15);color:var(--client);}
+
+  /* Modal */
+  .modal-overlay{position:fixed;inset:0;z-index:2000;background:rgba(5,8,24,0.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease;}
+  .modal{width:100%;max-width:480px;background:linear-gradient(160deg,#0B1027,#1A2453);border:1px solid var(--line);border-top:1px solid rgba(252,211,77,0.3);border-radius:24px 24px 0 0;padding:22px 20px max(env(safe-area-inset-bottom,16px),40px);animation:slideUp .35s cubic-bezier(.16,1,.3,1);box-shadow:0 -24px 80px rgba(0,0,0,.6);overflow-y:auto;max-height:92dvh;}
+  .modal-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--ink);margin-bottom:6px;}
+  .modal-sub{font-size:12.5px;color:var(--muted);margin-bottom:18px;line-height:1.6;}
+  .btn-modal{width:100%;margin-top:14px;background:linear-gradient(135deg,#FCD34D,#F59E0B);border:none;border-radius:13px;padding:15px;color:#0F0A02;font-size:14px;font-weight:700;min-height:52px;letter-spacing:.04em;text-transform:uppercase;}
+  .btn-modal.ghost{background:transparent;border:1px solid var(--line-soft);color:var(--muted-2);}
+  .btn-modal.danger{background:transparent;border:1px solid rgba(239,68,68,0.3);color:#FCA5A5;}
+  .btn-modal.ai{background:linear-gradient(135deg,#A78BFA,#7C3AED);color:#fff;}
+
+  /* Key input */
+  .field-label{font-size:10px;color:var(--gold);font-family:'DM Mono',monospace;letter-spacing:.16em;text-transform:uppercase;margin:14px 0 6px;}
+  .field-label.ai{color:var(--ai);}
+  .key-input{width:100%;background:var(--bg-2);border:1px solid var(--line-soft);border-radius:12px;padding:13px 14px;color:var(--ink);font-size:12.5px;font-family:'DM Mono',monospace;outline:none;min-height:50px;}
+  .key-input:focus{border-color:var(--gold);}
+  .key-input.ai:focus{border-color:var(--ai);}
+  .key-state{display:flex;align-items:center;gap:6px;font-size:11.5px;font-family:'DM Mono',monospace;margin-top:7px;}
+  .key-state.ok{color:#34D399;}
+  .key-state.bad{color:#FCA5A5;}
+  .key-state.empty{color:var(--muted-2);}
+  .help-box{background:rgba(15,23,42,0.6);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--muted);line-height:1.7;margin-top:10px;}
+  .help-box b{color:var(--gold);}
+  .help-box.ai b{color:var(--ai);}
+
+  .steps{display:flex;flex-direction:column;gap:11px;}
+  .step{display:flex;gap:11px;align-items:flex-start;}
+  .step-n{min-width:30px;height:28px;border-radius:8px;background:rgba(252,211,77,0.12);border:1px solid rgba(252,211,77,0.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--gold);font-family:'DM Mono',monospace;flex-shrink:0;}
+  .step-t{font-size:13px;color:var(--ink-2);line-height:1.6;padding-top:4px;}
+  .seg{display:flex;gap:6px;margin-bottom:16px;background:var(--panel);border-radius:11px;padding:4px;}
+  .seg-btn{flex:1;padding:9px 4px;border-radius:8px;border:none;background:transparent;color:var(--muted-2);font-size:12px;font-weight:600;min-height:40px;}
+  .seg-btn.active{background:rgba(252,211,77,0.18);color:var(--gold);}
+
+  /* Toast */
+  .toast{position:fixed;bottom:max(env(safe-area-inset-bottom,20px),30px);left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.96);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:12px;padding:12px 18px;color:var(--ink);font-size:13px;z-index:3000;animation:toastIn .25s ease;display:flex;align-items:center;gap:8px;box-shadow:0 8px 32px rgba(0,0,0,.4);max-width:90vw;}
+  .toast .tc{color:var(--gold);}
+
+  .no-contact{background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.18);border-radius:12px;padding:11px 14px;margin-bottom:12px;font-size:12px;color:#FCD34D;display:flex;gap:8px;align-items:center;}
+  code{background:rgba(252,211,77,0.1);border-radius:4px;padding:1px 5px;font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);}
+
+  /* Footer trademark */
+  .footer{text-align:center;padding:14px 22px max(env(safe-area-inset-bottom,12px),18px);margin-top:auto;}
+  .footer-line{font-size:10px;color:var(--muted-2);font-family:'DM Mono',monospace;letter-spacing:.1em;line-height:1.7;}
+  .footer-line .star{color:var(--gold-dim);}
+</style>
+</head>
+<body>
+<div class="stars" id="stars"></div>
+<div id="app"></div>
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// POLARIS BUSINESS WAYFINDER · V2.0 · by Stellaris Solutions
+// Clean rebuild. Vanilla JS, single state object, one render() function.
+// ═══════════════════════════════════════════════════════════════════════════
+
+'use strict';
+
+// ─── Storage keys ────────────────────────────────────────────────────────────
+const LS = {
+  saves:    'polaris_saves_v1',     // carried over from v1 — preserves saved leads
+  prefs:    'polaris_prefs_v2',
+  aiCache:  'polaris_ai_cache_v2',
+  googleKey:'polaris_google_key_v1',
+  aiKey:    'polaris_anthropic_key_v1',
+};
+
+const ANTHROPIC_MODEL = 'claude-haiku-4-5';
+
+// ─── Safe localStorage helpers ───────────────────────────────────────────────
+function lsGet(key, fallback) {
+  try {
+    const v = localStorage.getItem(key);
+    return v == null ? fallback : v;
+  } catch { return fallback; }
+}
+function lsGetJSON(key, fallback) {
+  try {
+    const v = localStorage.getItem(key);
+    return v == null ? fallback : JSON.parse(v);
+  } catch { return fallback; }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, val); } catch (e) { console.warn('localStorage write failed', e); }
+}
+function lsSetJSON(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { console.warn('localStorage write failed', e); }
+}
+function lsRemove(key) {
+  try { localStorage.removeItem(key); } catch {}
+}
+
+// ─── Key management ──────────────────────────────────────────────────────────
+function getGoogleKey() { return lsGet(LS.googleKey, '') || ''; }
+function getAiKey()     { return lsGet(LS.aiKey, '') || ''; }
+function googleKeyOk()  { const k = getGoogleKey(); return k.length > 20 && k.startsWith('AIza'); }
+function aiKeyOk()      { const k = getAiKey(); return k.length > 40 && k.startsWith('sk-ant-'); }
+
+// ─── Star field ──────────────────────────────────────────────────────────────
+(function makeStars() {
+  const sf = document.getElementById('stars');
+  if (!sf) return;
+  for (let i = 0; i < 36; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.left = Math.random() * 100 + '%';
+    s.style.top = Math.random() * 100 + '%';
+    s.style.animationDelay = (Math.random() * 3) + 's';
+    s.style.opacity = (0.2 + Math.random() * 0.6).toFixed(2);
+    sf.appendChild(s);
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CATEGORIES — Google Places (New) type filters
+// ═══════════════════════════════════════════════════════════════════════════
+const CATEGORIES = [
+  { id:'all',    label:'All',        icon:'✦', types:[
+    'restaurant','cafe','bar','bakery','meal_takeaway',
+    'car_repair','car_wash','gas_station','tire_shop','auto_parts_store',
+    'beauty_salon','hair_salon','nail_salon','barber_shop','body_art_service','spa',
+    'electronics_store','cell_phone_store','hardware_store','clothing_store','jewelry_store',
+    'florist','pet_store','book_store','pharmacy','dentist','doctor','veterinary_care',
+    'lawyer','real_estate_agency',
+  ]},
+  { id:'food',   label:'Food',       icon:'🍽️', types:[
+    'restaurant','cafe','bar','meal_takeaway','bakery','coffee_shop','pizza_restaurant','fast_food_restaurant',
+  ]},
+  { id:'auto',   label:'Auto',       icon:'🚗', types:[
+    'car_repair','car_wash','gas_station','tire_shop','auto_parts_store','car_dealer','car_rental',
+  ], textQuery:'oil change OR auto repair OR tire shop' },
+  { id:'beauty', label:'Beauty',     icon:'✂️', types:[
+    'beauty_salon','hair_salon','nail_salon','barber_shop','spa',
+  ]},
+  { id:'tattoo', label:'Tattoo',     icon:'🎨', types:['body_art_service'], textQuery:'tattoo shop OR piercing studio' },
+  { id:'tech',   label:'Tech',       icon:'💻', types:['electronics_store','cell_phone_store'] },
+  { id:'home',   label:'Home',       icon:'🔧', types:[
+    'hardware_store','plumber','electrician','painter','roofing_contractor','locksmith','moving_company',
+  ]},
+  { id:'health', label:'Health',     icon:'💊', types:[
+    'pharmacy','dentist','doctor','veterinary_care','physiotherapist','chiropractor',
+  ]},
+  { id:'shop',   label:'Shop',       icon:'🛍️', types:[
+    'clothing_store','shoe_store','jewelry_store','book_store','gift_shop','pet_store','florist','sporting_goods_store',
+  ]},
+  { id:'svcs',   label:'Services',   icon:'🏦', types:[
+    'lawyer','accounting','insurance_agency','real_estate_agency','travel_agency',
+  ]},
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DEMOGRAPHIC PRESETS — weight lead scores toward your target market
+// ═══════════════════════════════════════════════════════════════════════════
+const PRESETS = [
+  { id:'mixed',  label:'Small Biz',     icon:'◆',  desc:'Independent shops across all categories', weights:{} },
+  { id:'auto',   label:'Auto',          icon:'🚗', desc:'Repair, oil change, tire shops',
+    weights:{ car_repair:1.5, car_wash:1.3, tire_shop:1.5, auto_parts_store:1.3, gas_station:0.7 } },
+  { id:'beauty', label:'Beauty/Tattoo', icon:'🎨', desc:'Salons, tattoo, piercing, nails, spas',
+    weights:{ body_art_service:1.5, beauty_salon:1.5, hair_salon:1.4, nail_salon:1.4, barber_shop:1.4, spa:1.3 } },
+  { id:'food',   label:'Food',          icon:'🍽️', desc:'Restaurants, cafes, bars',
+    weights:{ restaurant:1.4, cafe:1.3, bar:1.2, bakery:1.3, pizza_restaurant:1.3 } },
+  { id:'all',    label:'All Equal',     icon:'✦', desc:'Score by general quality only', weights:{} },
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHAIN DETECTION — businesses CC reps skip (corporate, locked-in processors)
+// ═══════════════════════════════════════════════════════════════════════════
+const CHAIN_RX = [
+  /\bmcdonald'?s\b/i,/\bburger king\b/i,/\bwendy'?s\b/i,/\bsubway\b/i,/\btaco bell\b/i,/\bkfc\b/i,
+  /\bchipotle\b/i,/\bpanera\b/i,/\bchick-?fil-?a\b/i,/\bdomino'?s\b/i,/\bpizza hut\b/i,/\bpapa john'?s\b/i,
+  /\blittle caesars\b/i,/\bdunkin\b/i,/\bsonic\b/i,/\bdairy queen\b/i,/\bdq\b/i,/\bjack in the box\b/i,
+  /\bcarl'?s jr\b/i,/\bhardee'?s\b/i,/\bin-?n-?out\b/i,/\bfive guys\b/i,/\bpopeyes\b/i,/\bculver'?s\b/i,
+  /\barby'?s\b/i,/\bjimmy john'?s\b/i,/\bjersey mike'?s\b/i,/\bjamba\b/i,/\bstarbucks\b/i,/\bdutch bros\b/i,
+  /\bpeet'?s\b/i,/\bwalmart\b/i,/\btarget\b/i,/\bcostco\b/i,/\bsam'?s club\b/i,/\bbest buy\b/i,
+  /\bhome depot\b/i,/\blowe'?s\b/i,/\bmenards\b/i,/\bikea\b/i,/\bmacy'?s\b/i,/\bkohl'?s\b/i,
+  /\bnordstrom\b/i,/\bjcpenney\b/i,/\bross\b/i,/\btj ?maxx\b/i,/\bmarshalls\b/i,/\bbig lots\b/i,
+  /\bdollar (general|tree|store)\b/i,/\bfamily dollar\b/i,/\bcvs\b/i,/\bwalgreens\b/i,/\brite aid\b/i,
+  /\bsafeway\b/i,/\bkroger\b/i,/\bwhole foods\b/i,/\btrader joe'?s\b/i,/\bpublix\b/i,/\baldi\b/i,
+  /\bbi-?mart\b/i,/\bwinco\b/i,/\bfred meyer\b/i,/\b7-?eleven\b/i,/\bcircle k\b/i,/\bplaid pantry\b/i,
+  /\bpetsmart\b/i,/\bpetco\b/i,
+  /\b(bank of america|chase|wells fargo|citibank|us bank|capital one|pnc|td bank|truist|umpqua)\b/i,
+  /\bshell\b/i,/\bchevron\b/i,/\bexxon\b/i,/\bmobil\b/i,/\bbp\b/i,/\barco\b/i,/\bspeedway\b/i,
+  /\b76\b/i,/\bsunoco\b/i,/\bvalero\b/i,/\bcasey'?s\b/i,
+  /\b(verizon|at&?t|t-?mobile|sprint|xfinity|spectrum)\b/i,
+  /\b(holiday inn|hampton inn|marriott|hilton|hyatt|best western|comfort inn|days inn|super 8|motel 6|la quinta)\b/i,
+  /\b(autozone|o'?reilly|advance auto|napa auto|pep boys|les schwab|jiffy lube)\b/i,
+  /\b(ups store|fedex|h&r block)\b/i,/\b(planet fitness|la fitness|anytime fitness|24 hour fitness)\b/i,
+];
+function isChain(name) {
+  if (!name) return false;
+  return CHAIN_RX.some(rx => rx.test(name));
+}
+
+// Institutional / government types — not CC processing prospects
+const SKIP_TYPES = new Set([
+  'school','primary_school','secondary_school','university','library','courthouse',
+  'fire_station','police','post_office','government_office','local_government_office','city_hall',
+  'hospital','park','tourist_attraction','museum','cemetery','church','place_of_worship',
+  'bus_station','train_station','airport','transit_station',
+]);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LEAD SCORING — heuristic, free, runs on every business
+// ═══════════════════════════════════════════════════════════════════════════
+function scoreLead(biz, presetId) {
+  const reasons = [];
+  let score = 50;
+
+  if (isChain(biz.name)) {
+    return { score:0, temp:'nulltier', reasons:['Chain / big-box — locked into corporate processor'] };
+  }
+  const primaryType = biz.primaryType || (biz.types && biz.types[0]) || '';
+  if (SKIP_TYPES.has(primaryType) || (biz.types || []).some(t => SKIP_TYPES.has(t))) {
+    return { score:20, temp:'nonqual', reasons:['Institutional / government — unlikely processing prospect'] };
+  }
+  if (biz.businessStatus === 'CLOSED_PERMANENTLY' || biz.businessStatus === 'CLOSED_TEMPORARILY') {
+    return { score:0, temp:'nulltier', reasons:['Closed permanently or temporarily'] };
+  }
+
+  if (biz.phone) { score += 12; reasons.push('Has phone number'); }
+  else { score -= 8; reasons.push('No phone listed'); }
+  if (biz.website) { score += 6; reasons.push('Has website'); }
+
+  if (biz.rating != null && biz.reviews != null) {
+    if (biz.rating >= 4.5 && biz.reviews >= 100) {
+      score += 18; reasons.push(`Strong reputation — ${biz.rating}★ (${biz.reviews} reviews)`);
+    } else if (biz.rating >= 4.0 && biz.reviews >= 30) {
+      score += 10; reasons.push(`Solid reviews — ${biz.rating}★ (${biz.reviews})`);
+    } else if (biz.rating < 3.5 && biz.reviews >= 10) {
+      score -= 6; reasons.push(`Low rating — ${biz.rating}★`);
+    }
+    if (biz.reviews >= 500) { score += 6; reasons.push('High review volume — busy business'); }
+    else if (biz.reviews < 10) { score -= 4; reasons.push('Few reviews — new or low-traffic'); }
+  }
+
+  const preset = PRESETS.find(p => p.id === presetId) || PRESETS[0];
+  const allTypes = [primaryType, ...(biz.types || [])];
+  let boost = 1.0;
+  for (const t of allTypes) {
+    if (preset.weights[t] && preset.weights[t] > boost) boost = preset.weights[t];
+  }
+  if (boost !== 1.0) {
+    score = Math.round(score * boost);
+    reasons.push(boost > 1 ? 'Matches your demographic focus' : 'Outside primary demographic');
+  }
+
+  const nm = (biz.name || '').toLowerCase();
+  if (!/\binc\b|\bllc\b|\bcorp\b/.test(nm)) {
+    score += 4; reasons.push('Likely independent / owner-operated');
+  }
+
+  score = Math.max(0, Math.min(100, score));
+  let temp = 'nulltier';
+  if (score >= 75) temp = 'priority';
+  else if (score >= 55) temp = 'qualified';
+  else if (score >= 30) temp = 'nonqual';
+  return { score, temp, reasons };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════
+const prefs = lsGetJSON(LS.prefs, {});
+
+const state = {
+  view: 'main',                       // 'main' | 'saved'
+  location: null,                     // { lat, lon }
+  locationLabel: '',
+  businesses: [],                     // array of unified business objects
+  loading: false,
+  error: null,
+  category: 'all',
+  radiusMiles: prefs.radiusMiles || 5,
+  preset: prefs.preset || 'mixed',
+  hotOnly: prefs.hotOnly || false,
+  hideChains: prefs.hideChains !== false,   // default true
+  search: '',
+  selected: null,                     // currently open business
+  notesDraft: '',
+  saves: lsGetJSON(LS.saves, {}),
+  aiCache: lsGetJSON(LS.aiCache, {}),
+  aiBusy: false,
+  aiError: null,
+  // location entry
+  locating: false,
+  manualMode: false,
+  manualAddress: '',
+  geocoding: false,
+  permDenied: false,
+  // modals
+  modal: null,                        // null | 'keys' | 'preset' | 'about' | 'guide'
+  guideTab: 'ios',
+  savedTab: 'lead',
+  toast: null,
+};
+
+function savePrefs() {
+  lsSetJSON(LS.prefs, {
+    radiusMiles: state.radiusMiles, preset: state.preset,
+    hotOnly: state.hotOnly, hideChains: state.hideChains,
+  });
+}
+
+let _renderScheduled = false;
+function setState(patch) {
+  Object.assign(state, patch);
+  render();
+}
+
+// ─── Toast ───────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg) {
+  state.toast = msg;
+  render();
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { state.toast = null; render(); }, 2400);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+const MILES_TO_M = 1609.344;
+
+function esc(s) {
+  if (s == null) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+function cleanPhone(p) { return String(p).replace(/[\s\-().]/g, ''); }
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371e3, f1 = lat1 * Math.PI/180, f2 = lat2 * Math.PI/180;
+  const a = Math.sin((lat2-lat1)*Math.PI/360)**2 +
+            Math.cos(f1)*Math.cos(f2)*Math.sin((lon2-lon1)*Math.PI/360)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function formatDist(m) {
+  const ft = m * 3.28084;
+  if (ft < 528) return Math.round(ft) + ' ft';
+  const mi = m / MILES_TO_M;
+  return mi < 10 ? mi.toFixed(1) + ' mi' : Math.round(mi) + ' mi';
+}
+function timeAgo(ms) {
+  const s = Math.floor((Date.now()-ms)/1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s/60); if (m < 60) return m + 'm ago';
+  const h = Math.floor(m/60); if (h < 24) return h + 'h ago';
+  const d = Math.floor(h/24); if (d < 30) return d + 'd ago';
+  return new Date(ms).toLocaleDateString();
+}
+function getPlatform() {
+  const ua = navigator.userAgent || '';
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+  if (/Android/i.test(ua)) return 'android';
+  return 'desktop';
+}
+function stars(rating) {
+  if (!rating) return '';
+  const f = Math.round(rating);
+  return '★'.repeat(f) + '☆'.repeat(5-f);
+}
+
+// ─── Business type → emoji + color ───────────────────────────────────────────
+function bizEmoji(biz) {
+  const t = biz.primaryType || '';
+  const map = {
+    restaurant:'🍽️', pizza_restaurant:'🍕', fast_food_restaurant:'🍔', meal_takeaway:'🥡',
+    cafe:'☕', coffee_shop:'☕', bakery:'🥐', bar:'🍺', ice_cream_shop:'🍦',
+    gas_station:'⛽', car_repair:'🔧', car_wash:'🚿', tire_shop:'🛞', car_dealer:'🚗',
+    auto_parts_store:'🔩', car_rental:'🚙', electric_vehicle_charging_station:'🔌',
+    body_art_service:'🎨', beauty_salon:'💅', nail_salon:'💅', hair_salon:'✂️',
+    barber_shop:'✂️', spa:'💆',
+    electronics_store:'💻', cell_phone_store:'📱', hardware_store:'🔨',
+    plumber:'🚿', electrician:'⚡', painter:'🖌️', roofing_contractor:'🏠', locksmith:'🔑',
+    moving_company:'📦', pharmacy:'💊', dentist:'🦷', doctor:'⚕️', veterinary_care:'🐾',
+    physiotherapist:'🧘', chiropractor:'🧘',
+    clothing_store:'👕', shoe_store:'👟', jewelry_store:'💍', book_store:'📚',
+    gift_shop:'🎁', pet_store:'🐶', florist:'💐', sporting_goods_store:'⚽',
+    lawyer:'⚖️', accounting:'📊', insurance_agency:'🛡️', real_estate_agency:'🏘️',
+    travel_agency:'✈️',
+  };
+  return map[t] || '🏢';
+}
+function bizColor(biz) {
+  const t = biz.primaryType || '';
+  if (/restaurant|cafe|bar|food|bakery|coffee/.test(t)) return '#F97316';
+  if (/car|gas|tire|auto|vehicle/.test(t)) return '#FBBF24';
+  if (/body_art|beauty|hair|nail|barber|spa/.test(t)) return '#F472B6';
+  if (/electronics|phone|computer/.test(t)) return '#60A5FA';
+  if (/hardware|plumber|electric|paint|roof|lock|moving/.test(t)) return '#FB923C';
+  if (/pharmacy|dentist|doctor|veterinary|physio|chiro/.test(t)) return '#22D3EE';
+  if (/lawyer|account|insurance|real_estate|travel/.test(t)) return '#A78BFA';
+  if (/store|shop|florist/.test(t)) return '#34D399';
+  return '#94A3B8';
+}
+function typeLabel(biz) {
+  if (biz.primaryTypeDisplay) return biz.primaryTypeDisplay;
+  const t = biz.primaryType || 'business';
+  return t.replace(/_/g, ' ');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GOOGLE PLACES API
+// ═══════════════════════════════════════════════════════════════════════════
+const GOOGLE_FIELDS = [
+  'places.id','places.displayName','places.formattedAddress','places.location',
+  'places.types','places.primaryType','places.primaryTypeDisplayName',
+  'places.nationalPhoneNumber','places.internationalPhoneNumber','places.websiteUri',
+  'places.googleMapsUri','places.rating','places.userRatingCount','places.businessStatus',
+  'places.regularOpeningHours','places.currentOpeningHours','places.priceLevel',
+].join(',');
+
+function googlePlaceToUnified(p, lat, lon) {
+  return {
+    id: 'g_' + p.id,
+    name: p.displayName?.text || 'Unnamed Business',
+    lat: p.location?.latitude,
+    lon: p.location?.longitude,
+    types: p.types || [],
+    primaryType: p.primaryType || (p.types && p.types[0]) || '',
+    primaryTypeDisplay: p.primaryTypeDisplayName?.text
+      ? p.primaryTypeDisplayName.text.toLowerCase() : null,
+    phone: p.nationalPhoneNumber || p.internationalPhoneNumber || null,
+    website: p.websiteUri || null,
+    address: p.formattedAddress || null,
+    rating: p.rating || null,
+    reviews: p.userRatingCount || null,
+    businessStatus: p.businessStatus || null,
+    googleMapsUri: p.googleMapsUri || null,
+    openNow: p.currentOpeningHours?.openNow,
+    hours: p.regularOpeningHours?.weekdayDescriptions || null,
+    priceLevel: p.priceLevel || null,
+    dist: (lat != null && p.location)
+      ? haversine(lat, lon, p.location.latitude, p.location.longitude) : null,
+  };
+}
+
+// Single Google Places call — capped at 20 results by Google.
+async function googleSearchSingle(lat, lon, catId, radiusM, originLat, originLon) {
+  const key = getGoogleKey();
+  if (!key) throw new Error('NO_GOOGLE_KEY');
+
+  const cat = CATEGORIES.find(c => c.id === catId) || CATEGORIES[0];
+  const radius = Math.min(radiusM, 50000);
+
+  // Text search for categories that need franchise-name matching
+  const useText = !!cat.textQuery && (catId === 'auto' || catId === 'tattoo');
+
+  const endpoint = useText
+    ? 'https://places.googleapis.com/v1/places:searchText'
+    : 'https://places.googleapis.com/v1/places:searchNearby';
+
+  const body = useText
+    ? {
+        textQuery: cat.textQuery,
+        locationBias: { circle: { center:{latitude:lat,longitude:lon}, radius } },
+        maxResultCount: 20,
+      }
+    : {
+        includedTypes: cat.types,
+        locationRestriction: { circle: { center:{latitude:lat,longitude:lon}, radius } },
+        maxResultCount: 20,
+        rankPreference: 'DISTANCE',
+      };
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': GOOGLE_FIELDS,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`GOOGLE_${res.status}: ${txt.slice(0, 240)}`);
+  }
+  const data = await res.json();
+  // Distance is always computed from the user's actual location, not the sub-cell center
+  const lat0 = originLat != null ? originLat : lat;
+  const lon0 = originLon != null ? originLon : lon;
+  return (data.places || []).map(p => googlePlaceToUnified(p, lat0, lon0));
+}
+
+// Grid search — splits the area into a 2×2 grid of sub-regions, runs Google
+// in each, merges and dedupes results. Returns up to ~80 businesses.
+// For small radii (≤2 mi), falls back to a single search since one call covers it.
+async function googleSearch(lat, lon, catId, radiusM) {
+  // Small radius: one call is enough, save the quota
+  if (radiusM <= 3200) {
+    return googleSearchSingle(lat, lon, catId, radiusM, lat, lon);
+  }
+
+  // 2×2 grid: 4 sub-cells, each centered diagonally from the origin (NE, NW, SE, SW).
+  // Geometry tuned so every cell overlaps the center AND extends past the outer edge,
+  // giving full coverage of the original circle with no gaps.
+  //   sub-radius = 70% of original    →    each cell reaches the user's location
+  //   offset     = 40% of original    →    cells fan out diagonally
+  // Verified: at 25mi, cells have 3.4mi overlap at center and reach 31.6mi outward.
+  const subRadius = Math.round(radiusM * 0.70);
+  const offset    = radiusM * 0.40;
+  const dLat = offset / 111320;                                 // 1° lat ≈ 111.32 km
+  const dLon = offset / (111320 * Math.cos(lat * Math.PI/180)); // lon scales by latitude
+
+  const cells = [
+    { lat: lat + dLat, lon: lon + dLon },  // NE
+    { lat: lat + dLat, lon: lon - dLon },  // NW
+    { lat: lat - dLat, lon: lon + dLon },  // SE
+    { lat: lat - dLat, lon: lon - dLon },  // SW
+  ];
+
+  // Run all four searches in parallel — much faster than sequential
+  const settled = await Promise.allSettled(
+    cells.map(c => googleSearchSingle(c.lat, c.lon, catId, subRadius, lat, lon))
+  );
+
+  // Collect successful results; if every cell failed, throw the first error
+  const all = [];
+  let firstError = null;
+  for (const r of settled) {
+    if (r.status === 'fulfilled') all.push(...r.value);
+    else if (!firstError) firstError = r.reason;
+  }
+  if (!all.length && firstError) throw firstError;
+
+  // Dedupe by id
+  const seen = new Set();
+  const deduped = [];
+  for (const biz of all) {
+    if (!biz.id || seen.has(biz.id)) continue;
+    seen.add(biz.id);
+    deduped.push(biz);
+  }
+
+  // Drop anything that ended up outside the requested radius (because sub-cells
+  // can extend slightly beyond the original circle in their corners)
+  return deduped.filter(b => b.dist == null || b.dist <= radiusM);
+}
+
+function explainGoogleError(e) {
+  const m = (e?.message || String(e));
+  if (m === 'NO_GOOGLE_KEY') return 'No Google API key set. Tap the ⚙️ button to add one.';
+  if (m.includes('GOOGLE_403')) return 'Google key rejected (403). Check the key allows this website and that Places API (New) is enabled.';
+  if (m.includes('GOOGLE_429')) return 'Google quota exceeded (429). Wait or check billing in Google Cloud Console.';
+  if (m.includes('GOOGLE_400')) return 'Google rejected the request (400). The category may have an invalid type.';
+  if (m.includes('Failed to fetch') || m.includes('NetworkError')) return 'Network error reaching Google. Check your connection.';
+  return 'Google Places error: ' + m.slice(0, 120);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ANTHROPIC AI — DEEP RESEARCH (owner lookup via web search)
+// ═══════════════════════════════════════════════════════════════════════════
+function explainAiError(e) {
+  const m = (e?.message || String(e)).toLowerCase();
+  if (m.includes('no_ai_key')) return 'No Anthropic API key set. Tap ⚙️ to add one.';
+  if (m.includes('401') || m.includes('invalid x-api-key') || m.includes('authentication')) {
+    return 'Invalid Anthropic key. Make sure it starts with sk-ant- and is active in console.anthropic.com.';
+  }
+  if (m.includes('403') || m.includes('permission')) return 'Anthropic key lacks permission. Check workspace settings.';
+  if (m.includes('429') || m.includes('rate')) return 'Anthropic rate limit hit. Wait a minute and retry.';
+  if (m.includes('credit') || m.includes('billing') || m.includes('insufficient')) {
+    return 'Anthropic credit exhausted. Add credit at console.anthropic.com → Billing.';
+  }
+  if (m.includes('400') || m.includes('invalid_request')) return 'Anthropic rejected the request (bad model or payload).';
+  if (m.includes('no json') || m.includes('malformed')) return 'AI returned an unreadable response. Tap Re-research to retry.';
+  if (m.includes('failed to fetch') || m.includes('networkerror')) return 'Network error reaching Anthropic. Check your connection.';
+  return 'AI error: ' + (e?.message || String(e)).slice(0, 120);
+}
+
+async function aiDeepResearch(biz) {
+  const key = getAiKey();
+  if (!key) throw new Error('NO_AI_KEY');
+
+  const preset = PRESETS.find(p => p.id === state.preset)?.label || 'small businesses';
+  const summary = {
+    name: biz.name,
+    type: typeLabel(biz),
+    address: biz.address,
+    phone: biz.phone,
+    website: biz.website,
+    rating: biz.rating,
+    reviews: biz.reviews,
+  };
+
+  const system = `You are a sales intelligence assistant for a credit card payment processing sales rep.
+Their target market: ${preset}. They sell merchant services — lower processing rates, better terminals,
+faster funding — competing against Square, Stripe, Toast, Clover, and PayPal.
+
+You have a web search tool. USE IT (2-4 searches) to research the business and find:
+1. The OWNER or decision-maker's name — search "[business] [city] owner", check the website's About page,
+   Google review responses signed by the owner, Facebook page, LinkedIn, local news.
+2. How long they have been in business.
+3. Clues about their current payment processor (website checkout badges, job postings, review mentions).
+4. Social media presence.
+
+After researching, respond with ONLY a JSON object (no markdown, no preamble):
+{
+  "verdict": "priority" | "qualified" | "nonqual" | "nulltier",
+  "ownerName": "First Last, or null if genuinely not found",
+  "ownerTitle": "Owner / Manager / GM, or null",
+  "ownerSource": "where the name was found, or null",
+  "businessAge": "e.g. 'Est. 2015 (~10 yrs)', or null",
+  "likelyProcessor": "best guess with 1-sentence reasoning",
+  "socialMedia": "handles/links, or null",
+  "pitchAngle": "1-2 sentence personalized opener — use the owner's name if found",
+  "bestTimeToContact": "specific phrase based on business type/hours, or null",
+  "reasoning": "2-3 sentences: why this is or isn't a good processing prospect",
+  "flags": ["short insight or risk flag"]
+}
+Verdict definitions:
+- "priority": excellent independent prospect, pitch first
+- "qualified": solid independent business worth pitching
+- "nonqual": weak fit — institutional, very low ratings, or hard to reach
+- "nulltier": chain / big-box / franchise — locked into a corporate processor, skip
+Never invent an owner name. If you cannot find it, use null.`;
+
+  const userMsg = `Research this business for a CC processing sales pitch:\n${JSON.stringify(summary, null, 2)}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 1600,
+      system,
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 4 }],
+      messages: [{ role: 'user', content: userMsg }],
+    }),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`ANTHROPIC_${res.status}: ${txt.slice(0, 240)}`);
+  }
+  const data = await res.json();
+  const text = (data.content || [])
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('');
+
+  const jsonMatch = text.replace(/```json|```/g, '').match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('NO JSON in AI response');
+  let analysis;
+  try { analysis = JSON.parse(jsonMatch[0]); }
+  catch { throw new Error('MALFORMED JSON from AI'); }
+
+  analysis.analyzedAt = Date.now();
+  analysis.model = ANTHROPIC_MODEL;
+  return analysis;
+}
+
+async function runDeepResearch(biz) {
+  if (!aiKeyOk()) { setState({ modal:'keys' }); return; }
+  if (state.aiBusy) return;
+  setState({ aiBusy:true, aiError:null });
+  try {
+    const analysis = await aiDeepResearch(biz);
+    state.aiCache[biz.id] = analysis;
+    lsSetJSON(LS.aiCache, state.aiCache);
+    setState({ aiBusy:false });
+    toast('✨ Research complete');
+  } catch (e) {
+    console.error('[Polaris AI]', e);
+    setState({ aiBusy:false, aiError: explainAiError(e) });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOCATION
+// ═══════════════════════════════════════════════════════════════════════════
+function beginScan() {
+  if (!googleKeyOk()) { setState({ modal:'keys' }); return; }
+  setState({ locating:true, error:null, permDenied:false });
+  if (!navigator.geolocation) {
+    setState({ locating:false, manualMode:true });
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      let label = 'Current Location';
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+          { headers:{'Accept-Language':'en'} });
+        const d = await r.json();
+        const parts = [d.address?.suburb || d.address?.neighbourhood,
+                       d.address?.city || d.address?.town || d.address?.village].filter(Boolean);
+        if (parts.length) label = parts.slice(0,2).join(', ');
+      } catch {}
+      state.location = { lat, lon };
+      state.locationLabel = label;
+      state.locating = false;
+      doSearch();
+    },
+    (err) => {
+      setState({
+        locating:false, manualMode:true,
+        permDenied: err.code === 1,
+        error: err.code === 1 ? null
+             : err.code === 2 ? 'Position unavailable — enter your location below.'
+             : 'Location timed out — enter your location below.',
+      });
+    },
+    { enableHighAccuracy:true, timeout:12000, maximumAge:60000 }
+  );
+}
+
+async function geocodeManual() {
+  const addr = state.manualAddress.trim();
+  if (!addr) return;
+  if (!googleKeyOk()) { setState({ modal:'keys' }); return; }
+  setState({ geocoding:true, error:null });
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1`,
+      { headers:{'Accept-Language':'en'} });
+    const d = await r.json();
+    if (!d.length) { setState({ geocoding:false, error:'Address not found. Try a city or ZIP code.' }); return; }
+    state.location = { lat: parseFloat(d[0].lat), lon: parseFloat(d[0].lon) };
+    state.locationLabel = d[0].display_name?.split(',').slice(0,2).join(',').trim() || addr;
+    state.geocoding = false;
+    state.manualMode = false;
+    state.permDenied = false;
+    doSearch();
+  } catch {
+    setState({ geocoding:false, error:'Could not look up that address.' });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEARCH ORCHESTRATION
+// ═══════════════════════════════════════════════════════════════════════════
+async function doSearch() {
+  if (!state.location) return;
+  setState({ loading:true, error:null });
+  try {
+    const radiusM = Math.round(state.radiusMiles * MILES_TO_M);
+    let results = await googleSearch(state.location.lat, state.location.lon, state.category, radiusM);
+
+    // Dedupe by id
+    const seen = new Set();
+    results = results.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
+
+    // Attach lead scores
+    results.forEach(r => { r.score = scoreLead(r, state.preset); });
+
+    // Sort: hot → warm → cold → skip, then by distance
+    const rank = { priority:0, qualified:1, nonqual:2, nulltier:3 };
+    results.sort((a,b) => {
+      const t = rank[a.score.temp] - rank[b.score.temp];
+      return t !== 0 ? t : (a.dist || 0) - (b.dist || 0);
+    });
+
+    setState({ businesses: results, loading:false });
+  } catch (e) {
+    console.error('[Polaris Search]', e);
+    setState({ loading:false, error: explainGoogleError(e) });
+  }
+}
+
+function rescore() {
+  state.businesses.forEach(r => { r.score = scoreLead(r, state.preset); });
+  const rank = { priority:0, qualified:1, nonqual:2, nulltier:3 };
+  state.businesses.sort((a,b) => {
+    const t = rank[a.score.temp] - rank[b.score.temp];
+    return t !== 0 ? t : (a.dist || 0) - (b.dist || 0);
+  });
+}
+
+function filteredBusinesses() {
+  let list = state.businesses.slice();
+  if (state.hideChains) list = list.filter(b => b.score.temp !== 'nulltier');
+  if (state.hotOnly)    list = list.filter(b => b.score.temp === 'priority' || b.score.temp === 'qualified');
+  const q = state.search.trim().toLowerCase();
+  if (q) list = list.filter(b => b.name.toLowerCase().includes(q));
+  return list;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CRM — SAVES
+// ═══════════════════════════════════════════════════════════════════════════
+function getSave(id) { return state.saves[id] || null; }
+function savesByCat(cat) {
+  return Object.values(state.saves)
+    .filter(s => s.category === cat)
+    .sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+}
+function totalSaves() { return Object.keys(state.saves).length; }
+
+function setSaveCategory(biz, category) {
+  const ex = state.saves[biz.id];
+  if (ex && ex.category === category) {
+    if (!ex.notes) { delete state.saves[biz.id]; toast('Removed from saves'); }
+    else { ex.category = null; ex.updatedAt = Date.now(); toast('Untagged'); }
+  } else {
+    state.saves[biz.id] = {
+      biz: snapshotBiz(biz),
+      category,
+      notes: ex?.notes || '',
+      savedAt: ex?.savedAt || Date.now(),
+      updatedAt: Date.now(),
+    };
+    toast('Saved as ' + category.charAt(0).toUpperCase() + category.slice(1));
+  }
+  lsSetJSON(LS.saves, state.saves);
+  render();
+}
+function snapshotBiz(b) {
+  return {
+    id:b.id, name:b.name, lat:b.lat, lon:b.lon, types:b.types, primaryType:b.primaryType,
+    primaryTypeDisplay:b.primaryTypeDisplay, phone:b.phone, website:b.website,
+    address:b.address, rating:b.rating, reviews:b.reviews, googleMapsUri:b.googleMapsUri,
+    businessStatus:b.businessStatus, openNow:b.openNow, hours:b.hours,
+  };
+}
+function saveNotes(biz) {
+  const notes = state.notesDraft.trim();
+  const ex = state.saves[biz.id];
+  if (!notes && !ex) { toast('Type a note first'); return; }
+  if (ex) {
+    ex.notes = notes;
+    ex.updatedAt = Date.now();
+    toast(notes ? 'Notes saved' : 'Notes cleared');
+  } else {
+    state.saves[biz.id] = {
+      biz: snapshotBiz(biz), category:'lead', notes,
+      savedAt: Date.now(), updatedAt: Date.now(),
+    };
+    toast('Notes saved · tagged as Lead');
+  }
+  lsSetJSON(LS.saves, state.saves);
+  render();
+}
+function removeSave(id) {
+  delete state.saves[id];
+  lsSetJSON(LS.saves, state.saves);
+  toast('Removed from saves');
+  setState({ selected:null });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EVENT HANDLERS (called from inline onclick)
+// ═══════════════════════════════════════════════════════════════════════════
+// v1→v2 migration: old saves stored biz as {tags:{name,...}}, v2 uses flat fields.
+function normalizeBiz(b) {
+  if (!b) return null;
+  // Already v2 shape
+  if (b.name && !b.tags) return b;
+  // Old v1 shape — biz had a .tags object
+  const t = b.tags || {};
+  return {
+    id: b.id,
+    name: t.name || b.name || 'Unnamed Business',
+    lat: b.lat, lon: b.lon,
+    types: t.google_types || b.types || [],
+    primaryType: t.google_primary || b.primaryType || '',
+    primaryTypeDisplay: t.google_primary_display || b.primaryTypeDisplay || null,
+    phone: t.phone || t['contact:phone'] || b.phone || null,
+    website: t.website || t['contact:website'] || b.website || null,
+    address: t['addr:full'] || b.address || null,
+    rating: b.rating || null,
+    reviews: b.userRatingCount || b.reviews || null,
+    googleMapsUri: b.googleMapsUri || null,
+    businessStatus: b.businessStatus || null,
+    openNow: b.openNow,
+    hours: b.hours || null,
+  };
+}
+
+function openBiz(id) {
+  let biz = state.businesses.find(b => b && b.id === id);
+  if (!biz && state.saves[id]) biz = normalizeBiz(state.saves[id].biz);
+  if (!biz) { toast('Could not open — try rescanning'); return; }
+  try {
+    if (!biz.score) biz.score = scoreLead(biz, state.preset);
+  } catch (e) {
+    console.warn('score failed', e);
+    biz.score = { score:50, temp:'qualified', reasons:[] };
+  }
+  state.notesDraft = state.saves[id]?.notes || '';
+  state.aiError = null;
+  setState({ selected: biz });
+}
+function closeBiz()  { setState({ selected:null, aiError:null }); }
+function pickCategory(id) {
+  state.category = id;
+  if (state.location) doSearch(); else render();
+}
+function pickPreset(id) {
+  state.preset = id;
+  state.modal = null;
+  savePrefs();
+  rescore();
+  render();
+  toast('Focus: ' + (PRESETS.find(p=>p.id===id)?.label || id));
+}
+function toggleHot() { state.hotOnly = !state.hotOnly; savePrefs(); render(); }
+function toggleChains() { state.hideChains = !state.hideChains; savePrefs(); render(); }
+function onRadius(v) {
+  state.radiusMiles = +v;
+  savePrefs();
+  const el = document.querySelector('.radius-head .val');
+  if (el) el.innerHTML = state.radiusMiles + '<em>mi</em>';
+}
+function onSearchInput(v) {
+  state.search = v;
+  // targeted update — don't re-render whole DOM (keeps keyboard focus)
+  const listEl = document.querySelector('.list');
+  const countEl = document.querySelector('.stats .count');
+  if (listEl) listEl.innerHTML = renderListBody(filteredBusinesses());
+  if (countEl) countEl.textContent = filteredBusinesses().length + ' results';
+}
+function onManualInput(v) {
+  state.manualAddress = v;
+  const btn = document.querySelector('.btn-go');
+  if (btn) btn.disabled = state.geocoding || !v.trim();
+}
+function onNotesInput(v) { state.notesDraft = v; }
+function backToStart() {
+  setState({ location:null, businesses:[], search:'', error:null });
+}
+function rescan() { if (state.location) doSearch(); }
+
+// ─── Key saving ──────────────────────────────────────────────────────────────
+function saveKeys() {
+  const gEl = document.getElementById('googleKeyInput');
+  const aEl = document.getElementById('aiKeyInput');
+  let saved = [];
+  if (gEl) {
+    const g = gEl.value.trim();
+    if (g) {
+      if (!g.startsWith('AIza')) { toast('Google key should start with AIza'); return; }
+      lsSet(LS.googleKey, g); saved.push('Google');
+    }
+  }
+  if (aEl) {
+    const a = aEl.value.trim();
+    if (a) {
+      if (!a.startsWith('sk-ant-')) { toast('Anthropic key should start with sk-ant-'); return; }
+      lsSet(LS.aiKey, a); saved.push('Anthropic');
+    }
+  }
+  setState({ modal:null });
+  toast(saved.length ? '✓ ' + saved.join(' + ') + ' key saved' : 'No changes');
+}
+function clearKeys() {
+  if (!confirm('Remove both saved API keys from this device?')) return;
+  lsRemove(LS.googleKey);
+  lsRemove(LS.aiKey);
+  setState({ modal:null });
+  toast('API keys removed');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER — TEMPLATES
+// ═══════════════════════════════════════════════════════════════════════════
+const TIER_LABELS = {
+  priority:'Priority', qualified:'Qualified', nonqual:'Non-Qualified', nulltier:'Null',
+};
+function tierLabel(t) { return TIER_LABELS[t] || t || '—'; }
+
+function tempBadge(temp) {
+  const meta = {
+    priority:  { ic:'⭐', label:'Priority' },
+    qualified: { ic:'✓',  label:'Qualified' },
+    nonqual:   { ic:'○',  label:'Non-Qualified' },
+    nulltier:  { ic:'∅',  label:'Null' },
+  }[temp] || { ic:'', label:temp };
+  return `<span class="temp ${temp}">${meta.ic} ${meta.label}</span>`;
+}
+
+function renderListBody(list) {
+  if (state.loading) {
+    return `<div class="spinner"><div class="spinner-ring"></div>
+      <p>Scanning ${state.radiusMiles} mi radius…</p></div>`;
+  }
+  if (!list.length) {
+    return `<div class="empty"><div class="empty-icon">✦</div>
+      <h3>${state.search ? 'No matches' : 'Nothing Found'}</h3>
+      <p>${state.search ? 'No businesses match your filter.'
+        : 'Try a wider radius, a different category, or turn off filters.'}</p></div>`;
+  }
+  return list.map(renderCard).join('');
+}
+
+function renderCard(biz) {
+  const color = bizColor(biz);
+  const save = getSave(biz.id);
+  const cls = save?.category ? ' ' + save.category : '';
+  const ai = state.aiCache[biz.id];
+  const aiPin = ai ? '<span class="ai-pin">✨</span>' : '';
+  const notePin = save?.notes ? '<span class="note-pin">📝</span>' : '';
+  const tagBadge = save?.category ? `<span class="tag ${save.category}">${save.category}</span>` : '';
+  const dist = biz.dist != null ? `<span class="card-dist">${esc(formatDist(biz.dist))}</span>` : '';
+  const rating = biz.rating
+    ? `<span class="card-rating">★ ${biz.rating.toFixed(1)}${biz.reviews ? ` (${biz.reviews>999?Math.floor(biz.reviews/1000)+'k':biz.reviews})` : ''}</span>`
+    : '';
+  const callBtn = biz.phone
+    ? `<a href="tel:${esc(cleanPhone(biz.phone))}" class="btn-call" onclick="event.stopPropagation()" aria-label="Call">📞</a>`
+    : `<button class="btn-chevron" onclick="event.stopPropagation();openBiz('${esc(biz.id)}')" aria-label="Details">›</button>`;
+  return `<div class="card${cls}" onclick="openBiz('${esc(biz.id)}')">
+    <div class="card-icon" style="background:${color}18;border:1px solid ${color}40">${bizEmoji(biz)}</div>
+    <div class="card-body">
+      <div class="card-name">${esc(biz.name)} ${aiPin}</div>
+      <div class="card-meta">${tempBadge(biz.score.temp)}<span class="card-type">${esc(typeLabel(biz))}</span>${dist?'<span style="color:#475569">·</span>'+dist:''}${rating}${tagBadge}${notePin}</div>
+    </div>
+    <div class="card-actions">${callBtn}</div>
+  </div>`;
+}
+
+function renderLanding() {
+  const p = getPlatform();
+  const needKeys = !googleKeyOk();
+
+  const keyWarn = needKeys
+    ? `<div class="warn-box">⚙️ Tap the gear icon above to add your Google API key before scanning.</div>`
+    : '';
+
+  const permBox = state.permDenied ? `<div class="error-box" style="text-align:left">
+    <b style="color:#FCA5A5">🔒 Location access blocked</b><br>
+    ${p==='ios' ? 'iPhone Settings → Privacy &amp; Security → Location Services → your browser → Allow While Using App.'
+     : p==='android' ? 'Settings → Apps → your browser → Permissions → Location → Allow.'
+     : 'Click the lock icon in the address bar → allow Location → refresh.'}
+    </div>` : '';
+
+  const errBox = state.error ? `<div class="error-box">${esc(state.error)}</div>` : '';
+
+  const manualBox = state.manualMode ? `<div style="width:100%;max-width:340px">
+    <div class="panel-label">◈ Enter location manually</div>
+    <div class="manual-row">
+      <input class="manual-input" type="text" inputmode="search" placeholder="City, address, or ZIP"
+        value="${esc(state.manualAddress)}" oninput="onManualInput(this.value)"
+        onkeydown="if(event.key==='Enter')geocodeManual()">
+      <button class="btn-go" onclick="geocodeManual()" ${state.geocoding||!state.manualAddress.trim()?'disabled':''}>${state.geocoding?'…':'Go'}</button>
+    </div>
+  </div>` : '';
+
+  const manualLink = (!state.manualMode && !state.permDenied)
+    ? `<button class="link-btn" onclick="setState({manualMode:true})">Enter location manually instead ›</button>`
+    : '';
+
+  return `<div class="landing">
+    <div style="text-align:center">
+      <div class="compass">
+        <div class="compass-ring2"></div><div class="compass-ring"></div>
+        <div class="compass-core">✦</div>
+      </div>
+      <p class="tagline"><em>Set your bearings.</em><br>Find and research local businesses to pitch.</p>
+    </div>
+    ${keyWarn}
+    <div class="panel">
+      <div class="radius-head">
+        <span class="lbl">Scan Radius</span>
+        <span class="val">${state.radiusMiles}<em>mi</em></span>
+      </div>
+      <input type="range" min="1" max="25" step="1" value="${state.radiusMiles}" oninput="onRadius(this.value)">
+      <div class="radius-ends"><span>1 MI</span><span>25 MI</span></div>
+    </div>
+    <button class="btn-primary" onclick="beginScan()" ${state.locating?'disabled':''}>
+      <span>✦</span>${state.locating?'Locating…':'Begin Wayfinding'}
+    </button>
+    ${permBox}${errBox}${manualBox}${manualLink}
+  </div>`;
+}
+
+function renderResults() {
+  const list = filteredBusinesses();
+  const cats = CATEGORIES.map(c =>
+    `<button class="cat-btn${state.category===c.id?' active':''}" onclick="pickCategory('${c.id}')">${c.icon} ${c.label}</button>`
+  ).join('');
+
+  const preset = PRESETS.find(p => p.id === state.preset);
+  const filterBar = `<div class="filter-bar">
+    <button class="chip" onclick="setState({modal:'preset'})">${preset?.icon||'◆'} ${esc(preset?.label||'Focus')}</button>
+    <button class="chip priority${state.hotOnly?' active':''}" onclick="toggleHot()">⭐ Qualified Only${state.hotOnly?' ✓':''}</button>
+    <button class="chip${state.hideChains?' active':''}" onclick="toggleChains()">🏢 Hide Null${state.hideChains?' ✓':''}</button>
+  </div>`;
+
+  const counts = { priority:0, qualified:0, nonqual:0 };
+  list.forEach(b => { if (counts[b.score.temp] != null) counts[b.score.temp]++; });
+  const summary = list.length
+    ? `<span>${counts.priority}⭐ ${counts.qualified}✓ ${counts.nonqual}○</span>`
+    : `<span>${state.radiusMiles} mi</span>`;
+
+  const errBox = (state.error && !state.loading)
+    ? `<div class="error-box" style="margin-bottom:10px">${esc(state.error)}</div>` : '';
+
+  return `<div class="results">
+    <div class="toolbar">
+      <button class="btn-back" onclick="backToStart()"><span>‹</span> Range</button>
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input class="search-input" type="search" placeholder="Filter by name…"
+          value="${esc(state.search)}" oninput="onSearchInput(this.value)">
+      </div>
+    </div>
+    ${filterBar}
+    <div class="cats">${cats}</div>
+    <div class="stats">
+      <span class="count">${state.loading?'Scanning…':list.length+' results'}</span>
+      ${summary}
+    </div>
+    ${errBox}
+    <div class="list">${renderListBody(list)}</div>
+  </div>`;
+}
+
+function renderAiSection(biz) {
+  const ai = state.aiCache[biz.id];
+  const errHtml = state.aiError
+    ? `<div class="ai-err">⚠️ ${esc(state.aiError)}
+        <button onclick="setState({aiError:null})" style="background:none;border:none;color:#FCA5A5;text-decoration:underline;font-size:11px;margin-left:4px">dismiss</button></div>`
+    : '';
+
+  if (ai) {
+    const ownerBlock = ai.ownerName
+      ? `<div class="owner-card">
+          <span class="owner-emoji">👤</span>
+          <div>
+            <div class="owner-name">${esc(ai.ownerName)}</div>
+            ${ai.ownerTitle?`<div class="owner-title">${esc(ai.ownerTitle)}</div>`:''}
+            ${ai.ownerSource?`<div class="owner-src">via ${esc(ai.ownerSource)}</div>`:''}
+          </div>
+        </div>`
+      : `<div class="owner-card empty">
+          <span class="owner-emoji">👤</span>
+          <div style="font-size:12px;color:var(--muted-2);padding-top:3px">Owner name not found online — ask for the owner when you walk in.</div>
+        </div>`;
+    const field = (label, val, cls) => val
+      ? `<div class="ai-field"><div class="ai-flabel">${label}</div><div class="ai-fvalue ${cls||''}">${esc(val)}</div></div>` : '';
+    const flags = Array.isArray(ai.flags) && ai.flags.length
+      ? `<div class="ai-field"><div class="ai-flabel">⚑ Flags</div><div class="ai-flags">${ai.flags.map(f=>`<div class="ai-flag">${esc(f)}</div>`).join('')}</div></div>`
+      : '';
+    return `<div class="ai-section">
+      <div class="ai-head">
+        <div class="ai-title">✨ Polaris AI <span class="ai-badge">WEB RESEARCHED</span></div>
+        <span class="verdict ${ai.verdict||'nonqual'}">${esc(tierLabel(ai.verdict))}</span>
+      </div>
+      ${errHtml}
+      ${ownerBlock}
+      ${field('💬 Pitch Opener', ai.pitchAngle, 'quote')}
+      ${field('💳 Likely Processor', ai.likelyProcessor)}
+      ${field('🕐 Best Time to Visit', ai.bestTimeToContact)}
+      ${field('📅 In Business', ai.businessAge)}
+      ${field('📱 Social Media', ai.socialMedia)}
+      ${field('📊 Assessment', ai.reasoning)}
+      ${flags}
+      <button class="btn-ai secondary" onclick="runDeepResearch(window._biz)" ${state.aiBusy?'disabled':''}>
+        ${state.aiBusy?'⏳ Researching…':'↻ Re-research'}
+      </button>
+      <div class="ai-meta">Researched ${timeAgo(ai.analyzedAt)} · ${esc(ai.model||'')}</div>
+    </div>`;
+  }
+
+  // Not yet analyzed
+  if (!aiKeyOk()) {
+    return `<div class="ai-section">
+      <div class="ai-head"><div class="ai-title">✨ Polaris AI — Owner Research</div></div>
+      <div class="ai-intro">Add your Anthropic API key to unlock AI research — it finds the owner's name, current processor, and a personalized pitch.</div>
+      <button class="btn-ai" onclick="setState({modal:'keys'})">⚙️ Add Anthropic Key</button>
+    </div>`;
+  }
+  return `<div class="ai-section">
+    <div class="ai-head"><div class="ai-title">✨ Polaris AI — Owner Research</div></div>
+    ${errHtml}
+    <div class="ai-intro">Claude will <b style="color:var(--ink)">search the web</b> for the owner's name, business history, likely processor, and a personalized pitch opener.</div>
+    <button class="btn-ai" onclick="runDeepResearch(window._biz)" ${state.aiBusy?'disabled':''}>
+      ${state.aiBusy?'⏳ Researching…':'✨ Deep Research'}
+    </button>
+    <div class="ai-meta">Uses web search · ~$0.01 per business · cached after first run</div>
+  </div>`;
+}
+
+function renderSheet(biz) {
+  window._biz = biz;
+  const color = bizColor(biz);
+  const save = getSave(biz.id);
+  const cat = save?.category || null;
+  const sc = biz.score || scoreLead(biz, state.preset);
+
+  const ratingLine = biz.rating
+    ? `<div style="font-size:12.5px;color:#FBBF24;margin-top:5px;font-weight:600">${stars(biz.rating)} ${biz.rating.toFixed(1)}${biz.reviews?` <span style="color:var(--muted-2);font-family:'DM Mono',monospace;font-weight:400">(${biz.reviews.toLocaleString()})</span>`:''}</div>`
+    : '';
+  const statusLine = biz.openNow === true
+    ? `<span class="temp" style="background:rgba(52,211,153,0.15);color:#34D399">Open Now</span>`
+    : biz.openNow === false
+    ? `<span class="temp" style="background:rgba(239,68,68,0.15);color:#FCA5A5">Closed</span>` : '';
+
+  // Contact actions
+  const platform = getPlatform();
+  const mapsUrl = biz.googleMapsUri ||
+    (platform==='ios' ? `maps://maps.apple.com/?q=${biz.lat},${biz.lon}` : `https://maps.google.com/?q=${biz.lat},${biz.lon}`);
+  const acts = [];
+  if (biz.phone) acts.push({ic:'📞',label:'Call Now',sub:biz.phone,color:'#34D399',href:`tel:${cleanPhone(biz.phone)}`});
+  if (biz.website) acts.push({ic:'🌐',label:'Visit Website',sub:biz.website.replace(/^https?:\/\//,'').slice(0,38),color:'#60A5FA',href:biz.website.startsWith('http')?biz.website:'https://'+biz.website,blank:true});
+  acts.push({ic:'🗺️',label:'Directions',sub:biz.address||'Open in Maps',color:'#FCD34D',href:mapsUrl,blank:true});
+  acts.push({ic:'🔍',label:'Search Online',sub:biz.name,color:'#94A3B8',href:`https://google.com/search?q=${encodeURIComponent(biz.name+' '+(biz.address||''))}`,blank:true});
+  const actionsHtml = acts.map(a =>
+    `<a href="${esc(a.href)}" ${a.blank?'target="_blank" rel="noopener"':''} class="action">
+      <div class="action-icon" style="background:${a.color}18;border:1px solid ${a.color}35">${a.ic}</div>
+      <div style="flex:1;min-width:0">
+        <div class="action-label">${esc(a.label)}</div>
+        <div class="action-sub">${esc(a.sub)}</div>
+      </div>
+      <span class="action-arrow">›</span>
+    </a>`).join('');
+
+  const noContact = !biz.phone && !biz.website
+    ? `<div class="no-contact"><span style="font-size:15px">⚠️</span> No direct contact listed — use Directions or Search below.</div>` : '';
+
+  // Lead signals
+  const signals = sc.reasons.length
+    ? `<div class="section">
+        <div class="section-label">Lead Signals · ${sc.score}/100</div>
+        ${sc.reasons.map(r=>`<div style="font-size:12px;color:var(--ink-2);padding:3px 0;line-height:1.5">• ${esc(r)}</div>`).join('')}
+      </div>` : '';
+
+  // CRM
+  const crm = `<div class="section">
+    <div class="section-label"><span>Save to Pipeline</span>
+      ${cat?`<span style="color:var(--${cat})">Tagged · ${cat}</span>`:`<span style="color:var(--muted-2)">Not saved</span>`}</div>
+    <div class="save-pills">
+      <button class="save-pill lead${cat==='lead'?' active':''}" onclick="setSaveCategory(window._biz,'lead')">◆<span>Lead</span></button>
+      <button class="save-pill prospect${cat==='prospect'?' active':''}" onclick="setSaveCategory(window._biz,'prospect')">◇<span>Prospect</span></button>
+      <button class="save-pill client${cat==='client'?' active':''}" onclick="setSaveCategory(window._biz,'client')">✦<span>Client</span></button>
+    </div>
+    <textarea class="notes-area" placeholder="Notes — decision maker, current processor, follow-up date…" oninput="onNotesInput(this.value)">${esc(state.notesDraft)}</textarea>
+    <div class="notes-row">
+      <span class="notes-saved">${save?.updatedAt&&save?.notes?'✓ Saved '+timeAgo(save.updatedAt):''}</span>
+      <button class="btn-save-notes" onclick="saveNotes(window._biz)">Save Notes</button>
+    </div>
+    ${save?`<button class="btn-remove" onclick="removeSave('${esc(biz.id)}')">Remove from Saves</button>`:''}
+  </div>`;
+
+  return `<div class="overlay" onclick="closeBiz()">
+    <div class="sheet" id="bizSheet" onclick="event.stopPropagation()">
+      <button class="sheet-close" onclick="closeBiz()" aria-label="Close">✕</button>
+      <div class="sheet-grip" id="sheetGrip">
+        <div class="sheet-handle"></div>
+        <div class="sheet-grip-hint">swipe down to close</div>
+      </div>
+      <div class="biz-head">
+        <div class="biz-head-icon" style="background:${color}20;border:1.5px solid ${color}55">${bizEmoji(biz)}</div>
+        <div style="min-width:0;flex:1">
+          <div class="biz-head-name">${esc(biz.name)}</div>
+          <div class="biz-head-sub">${esc(typeLabel(biz))}${biz.dist!=null?' · '+esc(formatDist(biz.dist)):''}</div>
+          <div class="biz-head-meta">${tempBadge(sc.temp)} <span class="temp" style="background:rgba(252,211,77,0.12);color:var(--gold)">${sc.score}/100</span> ${statusLine}</div>
+          ${ratingLine}
+        </div>
+      </div>
+      ${renderAiSection(biz)}
+      ${signals}
+      ${crm}
+      <div class="divider"></div>
+      ${noContact}
+      <div class="actions">${actionsHtml}</div>
+    </div>
+  </div>`;
+}
+
+function renderSaved() {
+  const tabs = [
+    {id:'lead',label:'Leads'},{id:'prospect',label:'Prospects'},{id:'client',label:'Clients'}
+  ];
+  const tabsHtml = tabs.map(t =>
+    `<button class="tab ${t.id}${state.savedTab===t.id?' active':''}" onclick="setState({savedTab:'${t.id}'})">
+      <span>${t.label}</span><span class="tc">${savesByCat(t.id).length}</span>
+    </button>`).join('');
+
+  const list = savesByCat(state.savedTab).map(s => {
+    const b = normalizeBiz(s.biz);
+    if (!b) return null;
+    if (state.location && b.lat != null) {
+      b.dist = haversine(state.location.lat, state.location.lon, b.lat, b.lon);
+    }
+    try {
+      if (!b.score) b.score = scoreLead(b, state.preset);
+    } catch {
+      b.score = { score:50, temp:'qualified', reasons:[] };
+    }
+    return b;
+  }).filter(Boolean);
+
+  const body = list.length
+    ? list.map(renderCard).join('')
+    : `<div class="empty"><div class="empty-icon">✦</div>
+        <h3>No ${tabs.find(t=>t.id===state.savedTab)?.label} Yet</h3>
+        <p>Save businesses from a scan by tapping a card and choosing Lead, Prospect, or Client.</p></div>`;
+
+  return `<div class="results">
+    <div class="toolbar">
+      <button class="btn-back" onclick="setState({view:'main'})"><span>‹</span> Back</button>
+      <div style="flex:1;font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--ink);font-weight:600;padding-left:6px">Saved Pipeline</div>
+    </div>
+    <div class="tabs">${tabsHtml}</div>
+    <div class="stats"><span class="count">${list.length} ${list.length===1?'entry':'entries'}</span><span>${totalSaves()} total</span></div>
+    <div class="list">${body}</div>
+  </div>`;
+}
+
+// ─── Modals ──────────────────────────────────────────────────────────────────
+function renderKeysModal() {
+  const g = getGoogleKey(), a = getAiKey();
+  const gState = googleKeyOk()
+    ? `<div class="key-state ok">✓ Saved — ${esc(g.slice(0,10))}…${esc(g.slice(-4))}</div>`
+    : g ? `<div class="key-state bad">⚠️ Should start with AIza</div>`
+        : `<div class="key-state empty">Not set</div>`;
+  const aState = aiKeyOk()
+    ? `<div class="key-state ok">✓ Saved — ${esc(a.slice(0,14))}…${esc(a.slice(-4))}</div>`
+    : a ? `<div class="key-state bad">⚠️ Should start with sk-ant-</div>`
+        : `<div class="key-state empty">Not set (AI features optional)</div>`;
+
+  return `<div class="modal-overlay" onclick="setState({modal:null})">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="modal-title">API Keys</div>
+      <div class="modal-sub">Keys are stored only on this device — never in the app's code, so GitHub won't flag them and they stay active.</div>
+
+      <div class="field-label">🗺️ Google Places API Key (required)</div>
+      <input id="googleKeyInput" class="key-input" type="text" autocomplete="off" autocorrect="off"
+        autocapitalize="off" spellcheck="false" placeholder="AIza…" value="${esc(g)}">
+      ${gState}
+      <div class="help-box">
+        <b>Get one:</b> console.cloud.google.com → APIs &amp; Services → Credentials → Create Key.
+        Enable <b>Places API (New)</b>. Restrict the key to your site for safety.
+      </div>
+
+      <div class="field-label ai">✨ Anthropic API Key (optional — for AI research)</div>
+      <input id="aiKeyInput" class="key-input ai" type="text" autocomplete="off" autocorrect="off"
+        autocapitalize="off" spellcheck="false" placeholder="sk-ant-…" value="${esc(a)}">
+      ${aState}
+      <div class="help-box ai">
+        <b>Get one:</b> console.anthropic.com → API Keys → Create Key.
+        Copy it immediately — it's shown only once. ~$0.01 per business researched.
+      </div>
+
+      <button class="btn-modal" onclick="saveKeys()">Save Keys</button>
+      ${(g||a)?`<button class="btn-modal danger" onclick="clearKeys()">Remove Saved Keys</button>`:''}
+      <button class="btn-modal ghost" onclick="setState({modal:null})">Close</button>
+    </div>
+  </div>`;
+}
+
+function renderPresetModal() {
+  const rows = PRESETS.map(p =>
+    `<button class="action${state.preset===p.id?'':''}" style="${state.preset===p.id?'border-color:var(--gold);background:rgba(252,211,77,0.1)':''};width:100%;margin-bottom:8px"
+       onclick="pickPreset('${p.id}')">
+      <div class="action-icon" style="background:rgba(252,211,77,0.1);border:1px solid rgba(252,211,77,0.2);font-size:20px">${p.icon}</div>
+      <div style="flex:1">
+        <div class="action-label">${p.label}</div>
+        <div class="action-sub" style="max-width:240px;white-space:normal">${p.desc}</div>
+      </div>
+      ${state.preset===p.id?'<span style="color:var(--gold);font-size:16px">✓</span>':''}
+    </button>`).join('');
+  return `<div class="modal-overlay" onclick="setState({modal:null})">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="modal-title">Demographic Focus</div>
+      <div class="modal-sub">Pick your target market — matching businesses score higher as leads.</div>
+      ${rows}
+      <button class="btn-modal ghost" onclick="setState({modal:null})">Close</button>
+    </div>
+  </div>`;
+}
+
+function renderAboutModal() {
+  return `<div class="modal-overlay" onclick="setState({modal:null})">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:30px;color:var(--gold);text-shadow:0 0 16px rgba(252,211,77,0.6)">✦</div>
+        <div class="modal-title" style="margin-top:6px">Polaris Wayfinder</div>
+        <div style="font-size:11px;color:var(--muted-2);font-family:'DM Mono',monospace;letter-spacing:.16em;text-transform:uppercase;margin-top:4px">Version 2.0 · Stellaris Solutions</div>
+      </div>
+      <div style="font-size:13px;color:var(--ink-2);line-height:1.7">
+        <p>Find local businesses, score them as credit-card-processing leads, and research owners with AI before you pitch.</p>
+        <p style="margin-top:10px"><b style="color:var(--gold)">Lead scoring</b> runs free on every scan — Hot, Warm, Cold, or Skip.</p>
+        <p style="margin-top:10px"><b style="color:var(--ai)">AI Deep Research</b> uses Claude with web search to find the owner's name, current processor, and a personalized pitch.</p>
+        <p style="margin-top:10px"><b style="color:var(--client)">Saves</b> are stored on this device — no account needed.</p>
+      </div>
+      <button class="btn-modal ghost" onclick="setState({modal:null})">Close</button>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN RENDER
+// ═══════════════════════════════════════════════════════════════════════════
+function render() {
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  const total = totalSaves();
+  const badge = total > 0 ? `<span class="badge">${total}</span>` : '';
+  const aiClass = aiKeyOk() ? ' ai-on' : '';
+
+  const locLine = (state.location && state.locationLabel && state.view==='main')
+    ? `<div class="header-loc"><span class="dot"></span>${esc(state.locationLabel)}</div>` : '';
+
+  const headerActions = `<div class="header-actions">
+    ${state.view==='main' && state.location ? `<button class="btn-icon" onclick="rescan()" aria-label="Rescan">↻</button>` : ''}
+    <button class="btn-icon${aiClass}" onclick="setState({modal:'keys'})" aria-label="API Keys">${aiKeyOk()?'✨':'⚙️'}</button>
+    <button class="btn-icon" onclick="setState({view:'saved'})" aria-label="Saved" style="background:rgba(252,211,77,0.12)">🗂${badge}</button>
+    <button class="btn-icon" onclick="setState({modal:'about'})" aria-label="About">✦</button>
+  </div>`;
+
+  let body;
+  if (state.view === 'saved')      body = renderSaved();
+  else if (state.location)         body = renderResults();
+  else                             body = renderLanding();
+
+  const sheet = state.selected ? renderSheet(state.selected) : '';
+  let modal = '';
+  if (state.modal === 'keys')   modal = renderKeysModal();
+  else if (state.modal === 'preset') modal = renderPresetModal();
+  else if (state.modal === 'about')  modal = renderAboutModal();
+
+  const toastHtml = state.toast
+    ? `<div class="toast"><span class="tc">✦</span>${esc(state.toast)}</div>` : '';
+
+  app.innerHTML = `
+    <div class="header">
+      <div class="brand-row">
+        <div>
+          <div class="brand-mark"><span class="brand-star">✦</span><span class="brand-eyebrow">Stellaris Solutions</span></div>
+          <h1 class="brand-name">Polaris <em>Wayfinder</em></h1>
+          <div class="brand-sub">Business Locator <span style="color:var(--gold-dim)">· v2.0</span></div>
+          ${locLine}
+        </div>
+        ${headerActions}
+      </div>
+    </div>
+    ${body}
+    ${(!state.location && state.view==='main') ? `<div class="footer">
+      <div class="footer-line">
+        <span class="star">✦</span> POLARIS BUSINESS WAYFINDER&trade; <span class="star">✦</span><br>
+        &copy; ${new Date().getFullYear()} STELLARIS SOLUTIONS<br>
+        A Division of Albanus Design &middot; All Rights Reserved
+      </div>
+    </div>` : ''}
+    ${sheet}${modal}${toastHtml}`;
+
+  // Wire up swipe-to-close on the business sheet (after DOM is built)
+  if (state.selected) attachSheetSwipe();
+}
+
+// ─── Swipe-down-to-close for the business sheet ──────────────────────────────
+function attachSheetSwipe() {
+  const sheet = document.getElementById('bizSheet');
+  const grip  = document.getElementById('sheetGrip');
+  if (!sheet || !grip) return;
+
+  let startY = 0, currentY = 0, dragging = false;
+
+  function onStart(e) {
+    // Only start a drag from the grip area, or when the sheet is scrolled to top
+    const fromGrip = grip.contains(e.target);
+    if (!fromGrip && sheet.scrollTop > 0) return;
+    dragging = true;
+    startY = e.touches ? e.touches[0].clientY : e.clientY;
+    currentY = startY;
+    sheet.style.transition = 'none';
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    currentY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dy = currentY - startY;
+    if (dy > 0) {
+      // Dragging downward — follow the finger
+      sheet.style.transform = `translateY(${dy}px)`;
+      if (e.cancelable) e.preventDefault();
+    }
+  }
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false;
+    const dy = currentY - startY;
+    sheet.style.transition = 'transform .25s cubic-bezier(.16,1,.3,1)';
+    if (dy > 110) {
+      // Past threshold — animate out and close
+      sheet.style.transform = 'translateY(100%)';
+      setTimeout(closeBiz, 200);
+    } else {
+      // Snap back
+      sheet.style.transform = 'translateY(0)';
+    }
+  }
+
+  grip.addEventListener('touchstart', onStart, { passive:true });
+  sheet.addEventListener('touchstart', onStart, { passive:true });
+  sheet.addEventListener('touchmove', onMove, { passive:false });
+  sheet.addEventListener('touchend', onEnd);
+  sheet.addEventListener('touchcancel', onEnd);
+}
+
+// ─── Boot ────────────────────────────────────────────────────────────────────
+render();
+
+</script>
+</body>
+</html>
